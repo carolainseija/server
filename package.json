@@ -1,0 +1,7 @@
+{
+  "type": "module",
+  "dependencies": {
+    "nodemailer": "^6.9.16",
+    "dotenv": "^16.4.7"
+  }
+}
