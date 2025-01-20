@@ -6,7 +6,8 @@ import ExcelJS from "exceljs";
 // Habilitar CORS
 export default async function handler(req, res) {
   // Configurar los encabezados CORS
-  res.setHeader("Access-Control-Allow-Origin", "*"); // Cambia '*' por 'http://127.0.0.1:5501' en producción
+
+  res.setHeader("Access-Control-Allow-Origin", "http://127.0.0.1:5501"); // Asegúrate de permitir la URL correcta de tu frontend
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
