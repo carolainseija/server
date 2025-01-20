@@ -7,7 +7,8 @@ import ExcelJS from "exceljs";
 export default async function handler(req, res) {
   // Configurar los encabezados CORS
 
-  res.setHeader("Access-Control-Allow-Origin", "*"); // Asegúrate de permitir la URL correcta de tu frontend
+  res.setHeader("Access-Control-Allow-Origin", "https://server-amber-nine-83.vercel.app/"); 
+  // https://server-amber-nine-83.vercel.app/api/send-email// Asegúrate de permitir la URL correcta de tu frontend
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
