@@ -9,15 +9,19 @@ export default async function handler(req, res) {
 
   res.setHeader("Access-Control-Allow-Origin", "*"); 
   // https://server-amber-nine-83.vercel.app/api/send-email// Asegúrate de permitir la URL correcta de tu frontend
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   // Manejo de solicitudes OPTIONS (preflight)
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
+  if (req.method === "GET") {
+    // Responder con un mensaje simple para probar el método GET
+    return res.status(200).json({ message: "API funcionando correctamente para GET" });
+  }
 
-  if (req.method !== "POST") {
+  if (req.method !== "POST" || req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
