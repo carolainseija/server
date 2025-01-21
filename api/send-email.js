@@ -9,48 +9,43 @@ const app = express();
 const cors = require("cors");
 
 // Configura las políticas de CORS
-app.use(cors({
-  origin: "*", // Permite este origen específico
-  methods: ["GET", "POST"], // Métodos HTTP permitidos
-  allowedHeaders: ["Content-Type"], // Headers permitidos
-}));
+app.use(
+  cors({
+    origin: "*", // Permite este origen específico
+    methods: ["GET", "POST"], // Métodos HTTP permitidos
+    allowedHeaders: ["Content-Type"], // Headers permitidos
+  })
+);
 
 app.use(express.json()); // Para procesar datos en formato JSON
 const upload = multer({ dest: "uploads/" }); // Directorio temporal para archivos subidos
 
-// Configura las credenciales de Gmail
-const SCOPES = ["https://www.googleapis.com/auth/gmail.send"];
-const TOKEN_PATH = "./token.json";
-const CREDENTIALS_PATH = "./credenciales.json";
-
 // Autenticación de Gmail
 async function authenticate() {
-  const { client_secret, client_id, redirect_uris } = JSON.parse(
-    fs.readFileSync(CREDENTIALS_PATH)
-  ).installed;
+  const { CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, REFRESH_TOKEN } = process.env;
+
   const oAuth2Client = new google.auth.OAuth2(
-    client_id,
-    client_secret,
-    redirect_uris[0]
+    CLIENT_ID,
+    CLIENT_SECRET,
+    REDIRECT_URI
   );
 
-  const token = JSON.parse(fs.readFileSync(TOKEN_PATH));
-  oAuth2Client.setCredentials(token);
+  // Configura las credenciales usando el REFRESH_TOKEN
+  oAuth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
 
   return oAuth2Client;
 }
 
 // Enviar correo con el archivo adjunto
 async function sendEmail(filePath, fileName) {
-  console.log("filepa", filePath)
   const auth = await authenticate();
   const gmail = google.gmail({ version: "v1", auth });
 
   const attachment = fs.readFileSync(filePath).toString("base64");
 
   const rawMessage = [
-    "From: carolainsilva1@gmail.com",
-    "To: carolainsilva1@gmail.com",
+    `From: ${process.env.EMAIL_USER}`,
+    `To: ${process.env.EMAIL_USER}`,
     "Subject: Acuerdos Creditos Directo Capta",
     "Content-Type: multipart/mixed; boundary=boundary_string",
     "",
@@ -92,7 +87,6 @@ async function sendEmail(filePath, fileName) {
 // Endpoint para procesar y enviar el archivo Excel
 app.post("/send-email", async (req, res) => {
   const { data } = req.body;
-  console.log("data", data)
 
   if (!data || !Array.isArray(data)) {
     return res.status(400).json({ error: "Datos inválidos o no enviados" });
