@@ -9,7 +9,13 @@
   "routes": [
     {
       "src": "/api/send-email",
-      "dest": "api/send-email.js"
+      "dest": "api/send-email.js",
+      "methods": ["POST"],
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
+      }
     }
   ]
 }
