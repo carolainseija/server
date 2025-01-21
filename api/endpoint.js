@@ -1,11 +1,24 @@
+const express = require("express");
 const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
 const { google } = require("googleapis");
 const ExcelJS = require("exceljs");
 
-// Middleware de Multer para manejar la subida de archivos
-const upload = multer({ dest: "/tmp/" }); // Vercel usa el directorio temporal "/tmp"
+const app = express();
+const cors = require("cors");
+
+// Configura las políticas de CORS
+app.use(
+  cors({
+    origin: "*", // Permite este origen específico
+    methods: ["GET", "POST"], // Métodos HTTP permitidos
+    allowedHeaders: ["Content-Type"], // Headers permitidos
+  })
+);
+
+app.use(express.json()); // Para procesar datos en formato JSON
+const upload = multer({ dest: "uploads/" }); // Directorio temporal para archivos subidos
 
 // Autenticación de Gmail
 async function authenticate() {
@@ -23,7 +36,7 @@ async function authenticate() {
   return oAuth2Client;
 }
 
-// Función para enviar el correo electrónico
+// Enviar correo con el archivo adjunto
 async function sendEmail(filePath, fileName) {
   const auth = await authenticate();
   const gmail = google.gmail({ version: "v1", auth });
@@ -71,23 +84,23 @@ async function sendEmail(filePath, fileName) {
   }
 }
 
-// **Handler principal de la API Route**
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Método no permitido" });
-  }
-
+// Endpoint para procesar y enviar el archivo Excel
+app.post("/send-email", async (req, res) => {
   const { data } = req.body;
 
   if (!data || !Array.isArray(data)) {
     return res.status(400).json({ error: "Datos inválidos o no enviados" });
   }
 
-  // Ruta del archivo procesado (en el directorio temporal de Vercel)
+  // Ruta del archivo procesado
   const fecha = new Date();
   const dia = String(fecha.getDate()).padStart(2, "0");
   const mes = String(fecha.getMonth() + 1).padStart(2, "0");
-  const processedFilePath = path.join("/tmp", `acuerdos-${dia}-${mes}.xlsx`);
+  const processedFilePath = path.join(
+    __dirname,
+    "uploads",
+    `acuerdos-${dia}-${mes}.xlsx`
+  );
 
   try {
     // Crear un archivo Excel usando ExcelJS
@@ -135,4 +148,9 @@ export default async function handler(req, res) {
       fs.unlinkSync(processedFilePath);
     }
   }
-}
+});
+
+// Iniciar el servidor
+app.listen(3000, () => {
+  console.log("Servidor en ejecución en el puerto 3000");
+});
