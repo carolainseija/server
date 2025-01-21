@@ -10,7 +10,7 @@ const cors = require("cors");
 
 // Configura las políticas de CORS
 app.use(cors({
-  origin: "http://127.0.0.1:5501", // Permite este origen específico
+  origin: "*", // Permite este origen específico
   methods: ["GET", "POST"], // Métodos HTTP permitidos
   allowedHeaders: ["Content-Type"], // Headers permitidos
 }));
