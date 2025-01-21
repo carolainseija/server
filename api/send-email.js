@@ -1,136 +1,137 @@
-import { google } from "googleapis";
-import fs from "fs";
-import path from "path";
-import ExcelJS from "exceljs";
+const express = require("express");
+const multer = require("multer");
+const fs = require("fs");
+const path = require("path");
+const { google } = require("googleapis");
+const ExcelJS = require("exceljs");
 
-// Habilitar CORS
-export default async function handler(req, res) {
-  // Configurar los encabezados CORS
+const app = express();
+const cors = require("cors");
 
-  res.setHeader("Access-Control-Allow-Origin", "*"); 
-  // https://server-amber-nine-83.vercel.app/api/send-email// Asegúrate de permitir la URL correcta de tu frontend
-  res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+// Configura las políticas de CORS
+app.use(cors({
+  origin: "http://127.0.0.1:5501", // Permite este origen específico
+  methods: ["GET", "POST"], // Métodos HTTP permitidos
+  allowedHeaders: ["Content-Type"], // Headers permitidos
+}));
 
-  // Manejo de solicitudes OPTIONS (preflight)
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
+app.use(express.json()); // Para procesar datos en formato JSON
+const upload = multer({ dest: "uploads/" }); // Directorio temporal para archivos subidos
+
+// Configura las credenciales de Gmail
+const SCOPES = ["https://www.googleapis.com/auth/gmail.send"];
+const TOKEN_PATH = "./token.json";
+const CREDENTIALS_PATH = "./credenciales.json";
+
+// Autenticación de Gmail
+async function authenticate() {
+  const { client_secret, client_id, redirect_uris } = JSON.parse(
+    fs.readFileSync(CREDENTIALS_PATH)
+  ).installed;
+  const oAuth2Client = new google.auth.OAuth2(
+    client_id,
+    client_secret,
+    redirect_uris[0]
+  );
+
+  const token = JSON.parse(fs.readFileSync(TOKEN_PATH));
+  oAuth2Client.setCredentials(token);
+
+  return oAuth2Client;
+}
+
+// Enviar correo con el archivo adjunto
+async function sendEmail(filePath, fileName) {
+  const auth = await authenticate();
+  const gmail = google.gmail({ version: "v1", auth });
+
+  const attachment = fs.readFileSync(filePath).toString("base64");
+
+  const rawMessage = [
+    "From: carolainsilva1@gmail.com",
+    "To: carolainsilva1@gmail.com",
+    "Subject: Acuerdos Creditos Directo Capta",
+    "Content-Type: multipart/mixed; boundary=boundary_string",
+    "",
+    "--boundary_string",
+    "Content-Type: text/plain; charset=UTF-8",
+    "",
+    "Estimados/as, espero que se encuentren bien, les envío los acuerdos generados en el día de hoy. ¡Saludos!, Capta.",
+    "",
+    "--boundary_string",
+    `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet; name="${fileName}"`,
+    `Content-Disposition: attachment; filename="${fileName}"`,
+    "Content-Transfer-Encoding: base64",
+    "",
+    attachment,
+    "",
+    "--boundary_string--",
+  ].join("\r\n");
+
+  const encodedMessage = Buffer.from(rawMessage)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
+  const response = await gmail.users.messages.send({
+    userId: "me",
+    requestBody: {
+      raw: encodedMessage,
+    },
+  });
+
+  if (response.data.id) {
+    console.log("Correo enviado con éxito:", response.data);
+  } else {
+    console.error("Error al enviar el correo:", response);
   }
-  if (req.method === "GET") {
-    // Responder con un mensaje simple para probar el método GET
-    return res.status(200).json({ message: "API funcionando correctamente para GET" });
+}
+
+// Endpoint para procesar y enviar el archivo Excel
+app.post("/send-email", async (req, res) => {
+  const { data } = req.body;
+
+  if (!data || !Array.isArray(data)) {
+    return res.status(400).json({ error: "Datos inválidos o no enviados" });
   }
 
-  if (req.method !== "POST" || req.method !== "GET") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+  // Ruta del archivo procesado
+  const fecha = new Date();
+  const dia = String(fecha.getDate()).padStart(2, "0");
+  const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+  const processedFilePath = path.join(
+    __dirname,
+    "uploads",
+    `acuerdos-${dia}-${mes}.xlsx`
+  );
 
   try {
-    // Configura las credenciales de Gmail
-    const SCOPES = ["https://www.googleapis.com/auth/gmail.send"];
-    const TOKEN_PATH = "./token.json";
-    const CREDENTIALS_PATH = "./credenciales.json";
-
-    // Autenticación de Gmail
-    const { client_secret, client_id, redirect_uris } = JSON.parse(
-      fs.readFileSync(CREDENTIALS_PATH)
-    ).installed;
-    const oAuth2Client = new google.auth.OAuth2(
-      client_id,
-      client_secret,
-      redirect_uris[0]
-    );
-
-    const token = JSON.parse(fs.readFileSync(TOKEN_PATH));
-    oAuth2Client.setCredentials(token);
-
-    // Enviar correo con el archivo adjunto
-    async function sendEmail(filePath, fileName) {
-      const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
-      const attachment = fs.readFileSync(filePath).toString("base64");
-
-      const rawMessage = [
-        "From: carolainsilva1@gmail.com",
-        "To: carolainsilva1@gmail.com",
-        "Subject: Acuerdos Capta",
-        "Content-Type: multipart/mixed; boundary=boundary_string",
-        "",
-        "--boundary_string",
-        "Content-Type: text/plain; charset=UTF-8",
-        "",
-        "Estimados/as, espero que se encuentren bien, les envío los acuerdos generados en el día de hoy. ¡Saludos!, Capta.",
-        "",
-        "--boundary_string",
-        `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet; name="${fileName}"`,
-        `Content-Disposition: attachment; filename="${fileName}"`,
-        "Content-Transfer-Encoding: base64",
-        "",
-        attachment,
-        "",
-        "--boundary_string--",
-      ].join("\r\n");
-
-      const encodedMessage = Buffer.from(rawMessage)
-        .toString("base64")
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")
-        .replace(/=+$/, "");
-
-      const response = await gmail.users.messages.send({
-        userId: "me",
-        requestBody: {
-          raw: encodedMessage,
-        },
-      });
-
-      if (response.data.id) {
-        console.log("Correo enviado con éxito:", response.data);
-      } else {
-        console.error("Error al enviar el correo:", response);
-      }
-    }
-
-    // Ruta temporal para guardar el archivo Excel procesado
-    const fecha = new Date();
-    const dia = String(fecha.getDate()).padStart(2, '0');
-    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-    const processedFilePath = path.join(
-      __dirname,
-      "uploads",
-      `acuerdos-${dia}-${mes}.xlsx`
-    );
-
     // Crear un archivo Excel usando ExcelJS
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Acuerdos");
 
     // Agregar encabezados
     const headers = [
-      "CODIGO", "DOCUMENTO", "NOMBRE", "ENTREGA",
-      "MONTOcuota", "CANTIDADcuotas", "FECHAgestion",
-      "MONTOtotal", "FECHApago", "SUCURSAL", "PRD"
+      "CODIGO",
+      "DOCUMENTO",
+      "NOMBRE",
+      "ENTREGA",
+      "MONTOcuota",
+      "CANTIDADcuotas",
+      "FECHAgestion",
+      "MONTOtotal",
+      "FECHApago",
+      "SUCURSAL",
+      "PRD",
     ];
     worksheet.addRow(headers);
 
-    // Simulación de datos procesados
-    const newData = [
-      {
-        CODIGO: "123",
-        DOCUMENTO: "45678901",
-        NOMBRE: "Juan Pérez",
-        ENTREGA: "Sí",
-        MONTOcuota: "5000",
-        CANTIDADcuotas: "12",
-        FECHAgestion: "2025-01-20",
-        MONTOtotal: "60000",
-        FECHApago: "2025-02-20",
-        SUCURSAL: "Montevideo",
-        PRD: "Personal",
-      },
-    ];
-
-    // Agregar los datos a la hoja de Excel
-    newData.forEach(data => worksheet.addRow(Object.values(data)));
+    // Agregar datos enviados al Excel
+    data.forEach((row) => {
+      const rowData = headers.map((key) => row[key] || "");
+      worksheet.addRow(rowData);
+    });
 
     // Escribir el archivo Excel
     await workbook.xlsx.writeFile(processedFilePath);
@@ -151,4 +152,9 @@ export default async function handler(req, res) {
       fs.unlinkSync(processedFilePath);
     }
   }
-}
+});
+
+// Iniciar el servidor
+app.listen(3000, () => {
+  console.log("Servidor en ejecución en el puerto 3000");
+});
