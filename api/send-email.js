@@ -42,6 +42,7 @@ async function authenticate() {
 
 // Enviar correo con el archivo adjunto
 async function sendEmail(filePath, fileName) {
+  console.log("filepa", filePath)
   const auth = await authenticate();
   const gmail = google.gmail({ version: "v1", auth });
 
@@ -91,6 +92,7 @@ async function sendEmail(filePath, fileName) {
 // Endpoint para procesar y enviar el archivo Excel
 app.post("/send-email", async (req, res) => {
   const { data } = req.body;
+  console.log("data", data)
 
   if (!data || !Array.isArray(data)) {
     return res.status(400).json({ error: "Datos inválidos o no enviados" });
